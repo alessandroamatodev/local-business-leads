@@ -1,65 +1,79 @@
-## PlaywrightCrawler template
+## What does Local Business Leads Scraper (Google Maps) do?
+**Local Business Leads Scraper (Google Maps)** collects structured local business data from Google Maps search results for a given keyword and city (for example, "restaurants" in "Milan"). It loads the Maps result panel, iterates business cards, opens detail views, and extracts key lead-generation fields such as name, address, phone, website, rating, reviews count, and listing URL. You can run it on the [Apify platform](https://apify.com/) with scheduling, API access, monitoring, integrations, and scalable cloud execution.
 
-<!-- This is an Apify template readme -->
+This Actor is ideal for users who want repeatable lead extraction workflows without building and maintaining custom scraping infrastructure.
 
-This template is a production-ready boilerplate for developing an [Actor](https://apify.com/actors) with `PlaywrightCrawler`. Use this to bootstrap your projects using the most up-to-date code.
+## Why use Local Business Leads Scraper (Google Maps)?
+- Generate local business prospect lists quickly.
+- Enrich outbound campaigns with contact details.
+- Support SEO, paid media, and local competitor analysis.
+- Power agency reporting and internal location intelligence dashboards.
+- Monetize data via API endpoints and recurring runs.
 
-> We decided to split Apify SDK into two libraries, Crawlee and Apify SDK v3. Crawlee will retain all the crawling and scraping-related tools and will always strive to be the best [web scraping](https://apify.com/web-scraping) library for its community. At the same time, Apify SDK will continue to exist, but keep only the Apify-specific features related to building Actors on the Apify platform. Read the upgrading guide to learn about the changes.
+## How to use Local Business Leads Scraper (Google Maps)
+1. Open the Actor in Apify Console.
+2. In the **Input** tab, set `city`, `keyword`, and optional `maxResults`.
+3. Start the run.
+4. Wait for completion and open the **Output** tab.
+5. Export or consume results through dataset API.
 
-## Resources
+## Input
+Provide JSON input like:
 
-If you're looking for examples or want to learn more visit:
-
-- [Crawlee + Apify Platform guide](https://crawlee.dev/docs/guides/apify-platform)
-- [Documentation](https://crawlee.dev/api/playwright-crawler/class/PlaywrightCrawler) and [examples](https://crawlee.dev/docs/examples/playwright-crawler)
-- [Node.js tutorials](https://docs.apify.com/academy/node-js) in Academy
-- [Scraping single-page applications with Playwright](https://blog.apify.com/scraping-single-page-applications-with-playwright/)
-- [How to scale Puppeteer and Playwright](https://blog.apify.com/how-to-scale-puppeteer-and-playwright/)
-- [Integration with Zapier](https://apify.com/integrations), Make, GitHub, Google Drive and other apps
-- [Video guide on getting data using Apify API](https://www.youtube.com/watch?v=ViYYDHSBAKM)
-- A short guide on how to create Actors using code templates:
-
-[web scraper template](https://www.youtube.com/watch?v=u-i-Korzf8w)
-
-
-## Getting started
-
-For complete information [see this article](https://docs.apify.com/platform/actors/development#build-actor-locally). To run the Actor use the following command:
-
-```bash
-apify run
+```json
+{
+  "city": "Milan",
+  "keyword": "restaurants",
+  "maxResults": 50
+}
 ```
 
-## Deploy to Apify
+- `city` (required, string)
+- `keyword` (required, string)
+- `maxResults` (optional, integer, default `50`, max `200`)
 
-### Connect Git repository to Apify
+## Output
+Example output item:
 
-If you've created a Git repository for the project, you can easily connect to Apify:
+```json
+{
+  "name": "Ristorante Example",
+  "address": "Via Roma 10, Milan, Italy",
+  "phone": "+39 02 1234 5678",
+  "website": "https://www.example.com/",
+  "rating": "4.4",
+  "reviewsCount": 1287,
+  "googleMapsUrl": "https://www.google.com/maps/place/...",
+  "searchCity": "Milan",
+  "searchKeyword": "restaurants",
+  "scrapedAt": "2026-04-29T00:00:00.000Z"
+}
+```
 
-1. Go to [Actor creation page](https://console.apify.com/actors/new)
-2. Click on **Link Git Repository** button
+You can download the dataset in various formats such as JSON, HTML, CSV, or Excel.
 
-### Push project on your local machine to Apify
+## Data table
+| Field | Type | Description |
+|---|---|---|
+| name | string \| null | Business name |
+| address | string \| null | Street address from listing details |
+| phone | string \| null | Phone number if present |
+| website | string \| null | Website URL if present |
+| rating | string \| null | Displayed Google rating |
+| reviewsCount | number \| null | Parsed number of reviews |
+| googleMapsUrl | string \| null | Unique Google Maps listing URL |
+| searchCity | string | Input city |
+| searchKeyword | string | Input keyword |
+| scrapedAt | string | ISO timestamp when item was scraped |
 
-You can also deploy the project on your local machine to Apify without the need for the Git repository.
+## Pricing / Cost estimation
+How much does it cost to scrape Google Maps data? Cost depends on run length, pages loaded, and retries. For smaller lead lists (tens to low hundreds of records), runs are typically lightweight. Use `maxResults` to control runtime and compute usage. If you're testing, start with 20-50 results to estimate cost before scaling.
 
-1. Log in to Apify. You will need to provide your [Apify API Token](https://console.apify.com/account/integrations) to complete this action.
+## Tips or Advanced options
+- Start with narrow city + keyword combinations for cleaner data.
+- Use smaller `maxResults` for fast, low-cost iterative runs.
+- Schedule runs daily/weekly for lead refresh pipelines.
+- Post-process datasets to remove duplicates across runs.
 
-    ```bash
-    apify login
-    ```
-
-2. Deploy your Actor. This command will deploy and build the Actor on the Apify Platform. You can find your newly created Actor under [Actors -> My Actors](https://console.apify.com/actors?tab=my).
-
-    ```bash
-    apify push
-    ```
-
-## Documentation reference
-
-To learn more about Apify and Actors, take a look at the following resources:
-
-- [Apify SDK for JavaScript documentation](https://docs.apify.com/sdk/js)
-- [Apify SDK for Python documentation](https://docs.apify.com/sdk/python)
-- [Apify Platform documentation](https://docs.apify.com/platform)
-- [Join our developer community on Discord](https://discord.com/invite/jyEM2PRvMU)
+## FAQ, disclaimers, and support
+This Actor is designed for publicly available listing data. You are responsible for complying with applicable laws, platform Terms of Service, and data usage rules in your jurisdiction. Google Maps UI and selectors may change over time, which can affect extraction stability. If you need improvements, open an issue in the Actor repository or request a custom scraping solution.

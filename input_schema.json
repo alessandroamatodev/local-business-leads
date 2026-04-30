@@ -1,0 +1,28 @@
+{
+  "title": "Local Business Leads Input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "city": {
+      "title": "City",
+      "type": "string",
+      "description": "City to search in (e.g. Milan).",
+      "default": "Milan"
+    },
+    "keyword": {
+      "title": "Keyword",
+      "type": "string",
+      "description": "Business category or keyword (e.g. restaurants).",
+      "default": "restaurants"
+    },
+    "maxResults": {
+      "title": "Max results",
+      "type": "integer",
+      "description": "Maximum number of businesses to extract.",
+      "default": 50,
+      "minimum": 1,
+      "maximum": 200
+    }
+  },
+  "required": ["city", "keyword"]
+}

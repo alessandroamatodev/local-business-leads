@@ -1,0 +1,11 @@
+{
+  "actorSpecification": 1,
+  "name": "local-business-leads",
+  "title": "Local Business Leads Scraper (Google Maps)",
+  "description": "Scrapes Google Maps search results to generate structured local business leads.",
+  "version": "1.0.0",
+  "buildTag": "latest",
+  "env": null,
+  "input": "./input_schema.json",
+  "dockerfile": "./Dockerfile"
+}
