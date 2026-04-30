@@ -1,18 +1,14 @@
 {
-	"$schema": "https://apify.com/schemas/v1/actor.ide.json",
-	"actorSpecification": 1,
-	"name": "local-business-leads",
-	"title": "Project Playwright Crawler JavaScript",
-	"description": "Crawlee and Playwright project in JavaScript.",
-	"version": "0.0",
-	"meta": {
-		"templateId": "js-crawlee-playwright-chrome",
-		"generatedBy": "<FILL-IN-MODEL>"
-	},
-	"input": "./input_schema.json",
-	"output": "./output_schema.json",
-	"storages": {
-		"dataset": "./dataset_schema.json"
-	},
-	"dockerfile": "../Dockerfile"
+  "$schema": "https://apify.com/schemas/v1/actor.ide.json",
+  "actorSpecification": 1,
+  "name": "local-business-leads",
+  "title": "Local Business Leads Scraper (Google Maps)",
+  "description": "Scrapes Google Maps to generate structured local business leads.",
+  "version": "1.0.0",
+  "meta": {
+    "templateId": "js-crawlee-playwright-chrome",
+    "generatedBy": "GPT-5.3-Codex"
+  },
+  "input": "../input_schema.json",
+  "dockerfile": "../Dockerfile"
 }

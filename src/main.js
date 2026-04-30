@@ -1,40 +1,140 @@
-/**
- * This template is a production ready boilerplate for developing with `PlaywrightCrawler`.
- * Use this to bootstrap your projects using the most up-to-date code.
- * If you're looking for examples or want to learn more, see README.
- */
-
-// For more information, see https://crawlee.dev
-import { PlaywrightCrawler } from '@crawlee/playwright';
-// For more information, see https://docs.apify.com/sdk/js
 import { Actor } from 'apify';
+import log from 'apify/log';
+import { PlaywrightCrawler } from 'crawlee';
+import { setTimeout as sleep } from 'node:timers/promises';
 
-// this is ESM project, and as such, it requires you to specify extensions in your relative imports
-// read more about this here: https://nodejs.org/docs/latest-v18.x/api/esm.html#mandatory-file-extensions
-import { router } from './routes.js';
-
-// Initialize the Apify SDK
 await Actor.init();
 
-const { startUrls = ['https://apify.com'] } = (await Actor.getInput()) ?? {};
+Actor.on('aborting', async () => {
+    log.warning('Actor abort requested, exiting quickly...');
+    await sleep(1000);
+    await Actor.exit();
+});
 
-// `checkAccess` flag ensures the proxy credentials are valid, but the check can take a few hundred milliseconds.
-// Disable it for short runs if you are sure your proxy configuration is correct
-const proxyConfiguration = await Actor.createProxyConfiguration({ checkAccess: true });
+const input = (await Actor.getInput()) ?? {};
+const city = String(input.city ?? '').trim();
+const keyword = String(input.keyword ?? '').trim();
+const maxResults = Math.min(Math.max(Number(input.maxResults ?? 50), 1), 200);
+
+if (!city || !keyword) {
+    throw new Error('Input validation failed: "city" and "keyword" are required non-empty strings.');
+}
+
+const searchQuery = `${keyword} ${city}`;
+const searchUrl = `https://www.google.com/maps/search/${encodeURIComponent(searchQuery)}`;
+log.info(`Starting scrape for query: "${searchQuery}" with maxResults=${maxResults}`);
+
+const normalizeText = (value) => {
+    if (!value) return null;
+    const cleaned = value.replace(/\s+/g, ' ').trim();
+    return cleaned || null;
+};
+
+const parseReviewsCount = (value) => {
+    if (!value) return null;
+    const onlyNumber = value.replace(/[^\d]/g, '');
+    return onlyNumber ? Number(onlyNumber) : null;
+};
+
+const extractedLeads = new Map();
 
 const crawler = new PlaywrightCrawler({
-    proxyConfiguration,
-    requestHandler: router,
-    launchContext: {
-        launchOptions: {
-            args: [
-                '--disable-gpu', // Mitigates the "crashing GPU process" issue in Docker containers
-            ],
-        },
+    maxConcurrency: 1,
+    requestHandlerTimeoutSecs: 180,
+    async requestHandler({ page }) {
+        await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 120000 });
+        await page.waitForTimeout(3000);
+
+        const panel = page.locator('div[role="feed"]');
+        await panel.first().waitFor({ timeout: 30000 });
+
+        let noGrowthCycles = 0;
+        let previousCount = 0;
+
+        // Scroll left panel until enough cards are loaded or loading stalls.
+        while (extractedLeads.size < maxResults && noGrowthCycles < 8) {
+            const cards = page.locator('div[role="feed"] a[href*="/maps/place/"]');
+            const currentCount = await cards.count();
+
+            if (currentCount > previousCount) {
+                previousCount = currentCount;
+                noGrowthCycles = 0;
+                log.info(`Loaded ${currentCount} cards in results panel.`);
+            } else {
+                noGrowthCycles += 1;
+            }
+
+            await panel.first().evaluate((el) => {
+                el.scrollBy(0, 1400);
+            });
+            await page.waitForTimeout(1200);
+        }
+
+        const cards = page.locator('div[role="feed"] a[href*="/maps/place/"]');
+        const cardsCount = await cards.count();
+        log.info(`Processing up to ${Math.min(cardsCount, maxResults)} cards out of ${cardsCount} loaded.`);
+
+        for (let i = 0; i < cardsCount && extractedLeads.size < maxResults; i++) {
+            const card = cards.nth(i);
+
+            try {
+                await card.scrollIntoViewIfNeeded();
+                await card.click({ timeout: 10000 });
+                await page.waitForTimeout(1800);
+            } catch {
+                continue;
+            }
+
+            const lead = await page.evaluate(() => {
+                const textFromButtonDataItem = (key) => {
+                    const el = document.querySelector(`button[data-item-id="${key}"] .fontBodyMedium`) ||
+                        document.querySelector(`a[data-item-id="${key}"] .fontBodyMedium`);
+                    return el?.textContent?.trim() || null;
+                };
+
+                const name = document.querySelector('h1')?.textContent?.trim() || null;
+                const address = textFromButtonDataItem('address');
+                const phone = textFromButtonDataItem('phone:tel');
+                const website = document.querySelector('a[data-item-id="authority"]')?.href || null;
+                const ratingText = document.querySelector('div[role="main"] span[aria-hidden="true"]')?.textContent || null;
+                const reviewsText = document.querySelector('button[jsaction*="pane.rating.moreReviews"]')?.textContent ||
+                    document.querySelector('span[aria-label*="reviews"]')?.textContent || null;
+
+                return {
+                    name,
+                    address,
+                    phone,
+                    website,
+                    rating: ratingText,
+                    reviewsText,
+                    googleMapsUrl: window.location.href,
+                };
+            });
+
+            const normalized = {
+                name: normalizeText(lead.name),
+                address: normalizeText(lead.address),
+                phone: normalizeText(lead.phone),
+                website: normalizeText(lead.website),
+                rating: normalizeText(lead.rating),
+                reviewsCount: parseReviewsCount(lead.reviewsText),
+                googleMapsUrl: normalizeText(lead.googleMapsUrl),
+                searchCity: city,
+                searchKeyword: keyword,
+                scrapedAt: new Date().toISOString(),
+            };
+
+            const dedupeKey = normalized.googleMapsUrl || `${normalized.name}|${normalized.address}`;
+            if (!dedupeKey || extractedLeads.has(dedupeKey)) continue;
+
+            extractedLeads.set(dedupeKey, normalized);
+            log.info(`Collected ${extractedLeads.size}/${maxResults}: ${normalized.name ?? 'Unknown business'}`);
+        }
+
+        await Actor.pushData([...extractedLeads.values()].slice(0, maxResults));
+        log.info(`Finished. Stored ${Math.min(extractedLeads.size, maxResults)} leads in dataset.`);
     },
 });
 
-await crawler.run(startUrls);
-
-// Exit successfully
+await crawler.run([{ url: searchUrl }]);
 await Actor.exit();
