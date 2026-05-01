@@ -37,9 +37,14 @@ const parseReviewsCount = (value) => {
 };
 
 const closeConsentIfPresent = async (page) => {
+    const url = new URL(page.url());
+    const isConsentPage = url.hostname.includes('consent.google.com');
+
     const selectors = [
         'button:has-text("Accept all")',
         'button:has-text("I agree")',
+        'button:has-text("Accetta tutto")',
+        'button:has-text("Accetto")',
         'button[aria-label="Accept all"]',
         'form[action*="consent"] button[type="submit"]',
     ];
@@ -48,11 +53,24 @@ const closeConsentIfPresent = async (page) => {
         const button = page.locator(selector).first();
         if (await button.isVisible().catch(() => false)) {
             await button.click({ timeout: 5000 }).catch(() => {});
-            await page.waitForTimeout(1000);
+            await page.waitForTimeout(1200);
             log.info(`Handled consent dialog using selector: ${selector}`);
-            return;
+            return true;
         }
     }
+
+    if (isConsentPage) {
+        const continueParam = url.searchParams.get('continue');
+        if (continueParam) {
+            const targetUrl = decodeURIComponent(continueParam);
+            log.warning(`Consent page detected without clickable button, navigating to continue URL: ${targetUrl}`);
+            await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 120000 });
+            await page.waitForTimeout(1200);
+            return true;
+        }
+    }
+
+    return false;
 };
 
 const extractedLeads = new Map();
@@ -62,6 +80,7 @@ const crawler = new PlaywrightCrawler({
     requestHandlerTimeoutSecs: 180,
     async requestHandler({ page, request }) {
         await page.goto(request.url, { waitUntil: 'domcontentloaded', timeout: 120000 });
+        await closeConsentIfPresent(page);
         await closeConsentIfPresent(page);
         await page.waitForTimeout(3000);
 
