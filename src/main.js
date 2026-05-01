@@ -36,24 +36,50 @@ const parseReviewsCount = (value) => {
     return onlyNumber ? Number(onlyNumber) : null;
 };
 
+const closeConsentIfPresent = async (page) => {
+    const selectors = [
+        'button:has-text("Accept all")',
+        'button:has-text("I agree")',
+        'button[aria-label="Accept all"]',
+        'form[action*="consent"] button[type="submit"]',
+    ];
+
+    for (const selector of selectors) {
+        const button = page.locator(selector).first();
+        if (await button.isVisible().catch(() => false)) {
+            await button.click({ timeout: 5000 }).catch(() => {});
+            await page.waitForTimeout(1000);
+            log.info(`Handled consent dialog using selector: ${selector}`);
+            return;
+        }
+    }
+};
+
 const extractedLeads = new Map();
 
 const crawler = new PlaywrightCrawler({
     maxConcurrency: 1,
     requestHandlerTimeoutSecs: 180,
-    async requestHandler({ page }) {
-        await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 120000 });
+    async requestHandler({ page, request }) {
+        await page.goto(request.url, { waitUntil: 'domcontentloaded', timeout: 120000 });
+        await closeConsentIfPresent(page);
         await page.waitForTimeout(3000);
 
-        const panel = page.locator('div[role="feed"]');
-        await panel.first().waitFor({ timeout: 30000 });
+        const panelSelector = 'div[role="feed"], div[role="main"] div[aria-label][tabindex]';
+        const panel = page.locator(panelSelector).first();
+        const hasPanel = await panel.isVisible().catch(() => false);
+
+        if (!hasPanel) {
+            const pageText = normalizeText(await page.locator('body').innerText().catch(() => ''));
+            log.error('Could not locate results panel on Google Maps page.');
+            throw new Error(`Results panel not found. URL=${page.url()} title=${await page.title()} bodySnippet=${pageText?.slice(0, 250) ?? 'n/a'}`);
+        }
 
         let noGrowthCycles = 0;
         let previousCount = 0;
 
-        // Scroll left panel until enough cards are loaded or loading stalls.
         while (extractedLeads.size < maxResults && noGrowthCycles < 8) {
-            const cards = page.locator('div[role="feed"] a[href*="/maps/place/"]');
+            const cards = page.locator('a[href*="/maps/place/"]');
             const currentCount = await cards.count();
 
             if (currentCount > previousCount) {
@@ -64,13 +90,15 @@ const crawler = new PlaywrightCrawler({
                 noGrowthCycles += 1;
             }
 
-            await panel.first().evaluate((el) => {
+            await panel.evaluate((el) => {
                 el.scrollBy(0, 1400);
+            }).catch(async () => {
+                await page.mouse.wheel(0, 1600);
             });
             await page.waitForTimeout(1200);
         }
 
-        const cards = page.locator('div[role="feed"] a[href*="/maps/place/"]');
+        const cards = page.locator('a[href*="/maps/place/"]');
         const cardsCount = await cards.count();
         log.info(`Processing up to ${Math.min(cardsCount, maxResults)} cards out of ${cardsCount} loaded.`);
 
