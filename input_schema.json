@@ -7,13 +7,15 @@
       "title": "City",
       "type": "string",
       "description": "City to search in (e.g. Milan)",
-      "editor": "textfield"
+      "editor": "textfield",
+      "default": "Milan"
     },
     "keyword": {
       "title": "Keyword",
       "type": "string",
       "description": "Business type (e.g. restaurants)",
-      "editor": "textfield"
+      "editor": "textfield",
+      "default": "restaurants"
     },
     "maxResults": {
       "title": "Max Results",
@@ -25,8 +27,5 @@
       "description": "Maximum number of businesses to extract"
     }
   },
-  "required": [
-    "city",
-    "keyword"
-  ]
+  "required": []
 }
